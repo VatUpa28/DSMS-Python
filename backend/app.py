@@ -14,7 +14,7 @@ import sqlite3
 import csv
 import io
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="../frontend/templates", static_folder="../frontend/static")
 
 app.register_blueprint(home_bp)
 app.register_blueprint(inventory_bp)
