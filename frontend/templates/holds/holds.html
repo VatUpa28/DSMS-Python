@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Stone Holds - DSMS{% endblock %}
+
+{% block content %}
+<main class="container-fluid py-4" id="holds-workspace"
+      data-can-manage="{{ 'true' if can_manage_holds else 'false' }}">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="h3 mb-1">Stone Holds</h1>
+      <p class="text-muted mb-0">Reserve company inventory exclusively for one client.</p>
+    </div>
+    <a class="btn btn-outline-secondary" href="{{ url_for('inventory.inventory') }}">Inventory</a>
+  </div>
+
+  <div id="holds-alert" class="alert {% if not page_error %}d-none{% else %}alert-danger{% endif %}" role="alert">
+    {{ page_error or '' }}
+  </div>
+
+  {% if can_manage_holds %}
+  <section class="card mb-4">
+    <div class="card-header fw-semibold">Place Stones on Hold</div>
+    <div class="card-body">
+      <div class="row g-3 mb-3">
+        <div class="col-lg-5">
+          <label class="form-label" for="hold-client-search">Client code or name</label>
+          <div class="input-group">
+            <input class="form-control" id="hold-client-search" autocomplete="off">
+            <button class="btn btn-outline-primary" id="search-hold-clients" type="button">Search</button>
+          </div>
+          <div class="list-group mt-2" id="hold-client-results"></div>
+        </div>
+        <div class="col-lg-7">
+          <label class="form-label">Selected client</label>
+          <div class="border rounded p-3 text-muted" id="selected-hold-client">
+            Select one client before placing a HOLD.
+          </div>
+        </div>
+      </div>
+
+      <form id="available-search" class="border rounded p-3 mb-3">
+        <div class="row g-2">
+          <div class="col-md-3"><label class="form-label">Stock number</label><input class="form-control" name="stock_number"></div>
+          <div class="col-md-3"><label class="form-label">Lab</label><input class="form-control" name="lab"></div>
+          <div class="col-md-3"><label class="form-label">Shape</label><input class="form-control" name="shape"></div>
+          <div class="col-md-3"><label class="form-label">Color</label><input class="form-control" name="color"></div>
+          <div class="col-md-3"><label class="form-label">Clarity</label><input class="form-control" name="clarity"></div>
+          <div class="col-md-3"><label class="form-label">Cut</label><input class="form-control" name="cut"></div>
+          <div class="col-md-3"><label class="form-label">Polish</label><input class="form-control" name="polish"></div>
+          <div class="col-md-3"><label class="form-label">Symmetry</label><input class="form-control" name="symmetry"></div>
+          <div class="col-md-3"><label class="form-label">Fluorescence</label><input class="form-control" name="fluorescence"></div>
+          <div class="col-md-2"><label class="form-label">Min weight</label><input class="form-control" name="min_weight" type="number" min="0" step="0.01"></div>
+          <div class="col-md-2"><label class="form-label">Max weight</label><input class="form-control" name="max_weight" type="number" min="0" step="0.01"></div>
+          <div class="col-md-5">
+            <label class="form-label">Multiple stock numbers <span id="hold-stock-count" class="text-muted">0</span>/25</label>
+            <textarea class="form-control" name="stock_numbers" rows="2" placeholder="Separate with spaces, commas, tabs, or lines"></textarea>
+          </div>
+          <div class="col-md-3 d-flex align-items-end gap-2">
+            <button class="btn btn-primary" type="submit">Apply Filters</button>
+            <button class="btn btn-outline-secondary" id="clear-available-search" type="button">Clear Search Filters</button>
+          </div>
+        </div>
+      </form>
+
+      <div class="table-responsive mb-3">
+        <table class="table table-sm table-hover align-middle">
+          <thead><tr><th>Select</th><th>Stock Number</th><th>Report</th><th>Lab</th><th>Shape</th><th>Weight</th><th>Color</th><th>Clarity</th><th>Cut</th><th>Polish</th><th>Symmetry</th><th>Fluorescence</th><th>Price/Carat</th><th>Total</th></tr></thead>
+          <tbody id="available-hold-results"><tr><td colspan="14" class="text-center text-muted py-4">Select a client, then search AVAILABLE Stones.</td></tr></tbody>
+        </table>
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <strong><span id="selected-hold-count">0</span> selected</strong>
+        <button class="btn btn-outline-secondary btn-sm" id="clear-hold-selection" type="button">Clear Selected Stones</button>
+        <button class="btn btn-warning ms-auto" id="place-hold" type="button" disabled>Place on Hold</button>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="card">
+    <div class="card-header fw-semibold">Current Holds</div>
+    <div class="card-body border-bottom">
+      <form method="GET" class="row g-2 align-items-end">
+        <div class="col-md-3"><label class="form-label">Client code or name</label><input class="form-control" name="client" value="{{ hold_filters.client }}"></div>
+        <div class="col-md-3"><label class="form-label">Stock number</label><input class="form-control" name="stock_number" value="{{ hold_filters.stock_number }}"></div>
+        <div class="col-md-2"><label class="form-label">Lab</label><input class="form-control" name="lab" value="{{ hold_filters.lab }}"></div>
+        <div class="col-md-2"><label class="form-label">Shape</label><input class="form-control" name="shape" value="{{ hold_filters.shape }}"></div>
+        <div class="col-md-1"><label class="form-label">Min wt.</label><input class="form-control" name="min_weight" type="number" min="0" step="0.01" value="{{ hold_filters.min_weight }}"></div>
+        <div class="col-md-1"><label class="form-label">Max wt.</label><input class="form-control" name="max_weight" type="number" min="0" step="0.01" value="{{ hold_filters.max_weight }}"></div>
+        <div class="col-12"><button class="btn btn-primary" type="submit">Apply Filters</button> <a class="btn btn-outline-secondary" href="{{ url_for('holds.holds_page') }}">Clear</a></div>
+      </form>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-striped align-middle mb-0">
+        <thead><tr>{% if can_manage_holds %}<th>Release</th>{% endif %}<th>Stock Number</th><th>Client Code</th><th>Client Name</th><th>Report</th><th>Lab</th><th>Shape</th><th>Weight</th><th>Color</th><th>Clarity</th><th>Price/Carat</th><th>Total</th></tr></thead>
+        <tbody id="current-holds">
+          {% for stone in holds %}
+          <tr data-hold-stone-id="{{ stone.id }}">
+            {% if can_manage_holds %}<td><input class="form-check-input release-hold-item" type="checkbox" value="{{ stone.id }}"></td>{% endif %}
+            <td>{{ stone.stock_number }}</td><td>{{ stone.client_code }}</td><td>{{ stone.client_name }}</td>
+            <td>{{ stone.report_number or '—' }}</td><td>{{ stone.lab or '—' }}</td><td>{{ stone.shape or '—' }}</td><td>{{ stone.weight if stone.weight is not none else '—' }}</td><td>{{ stone.color or '—' }}</td><td>{{ stone.clarity or '—' }}</td>
+            <td>{% if stone.price_per_carat is not none %}{{ '${:,.2f}'.format(stone.price_per_carat) }}{% else %}—{% endif %}</td>
+            <td>{% if stone.total_price is not none %}{{ '${:,.2f}'.format(stone.total_price) }}{% else %}—{% endif %}</td>
+          </tr>
+          {% else %}<tr><td colspan="12" class="text-center text-muted py-4">No Stones are currently on HOLD.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if can_manage_holds %}<div class="card-footer text-end"><button class="btn btn-outline-danger" id="release-holds" type="button">Release Selected Holds</button></div>{% endif %}
+  </section>
+</main>
+<script src="{{ url_for('static', filename='js/holds.js') }}"></script>
+{% endblock %}

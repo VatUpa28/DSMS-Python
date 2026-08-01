@@ -1,4 +1,5 @@
 from flask import Blueprint, request, render_template, redirect
+from auth import require_roles
 from database.db import get_db
 
 shipping_bp = Blueprint("shipping", __name__)
@@ -23,6 +24,7 @@ def shipping(client_id):
 
 
 @shipping_bp.route("/clients/<int:client_id>/shipping/create", methods=["POST"])
+@require_roles("ADMIN", "MANAGER", "SALES")
 def create_shipping(client_id):
 
     conn = get_db()

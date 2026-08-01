@@ -1,4 +1,5 @@
 from flask import Blueprint, request, redirect, url_for
+from auth import require_roles
 from database.db import get_db
 from utils.process_rapaport_file import process_rapaport_file
 from services.stone_service import recalculate_stone_price
@@ -6,6 +7,7 @@ from services.stone_service import recalculate_stone_price
 upload_rapaport_bp = Blueprint("upload_rapaport", __name__)
 
 @upload_rapaport_bp.route("/upload-rapaport", methods=["POST"])
+@require_roles("ADMIN", "MANAGER")
 def upload_rapaport():
     conn = get_db()
 

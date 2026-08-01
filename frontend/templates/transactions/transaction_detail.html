@@ -1,141 +1,178 @@
-{% extends "base.html" %} {% block content %}
+{% extends "base.html" %}
 
-<h2>Transaction# {{ transaction.transaction_number }}</h2>
-<p>Status: {{ transaction.status }}</p>
+{% block title %}{{ transaction.transaction_number }} - DSMS{% endblock %}
 
-<!-- ================= STONES ================= -->
-<table class="table">
-  <tr>
-    <th>Stock #</th>
-    <th>Status</th>
-  </tr>
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <h1 class="h3 mb-1">{{ transaction.transaction_number }}</h1>
+      <div class="text-muted">
+        {{ transaction.type|replace('_', ' ')|title }} · {{ transaction.client_name }} ·
+        {{ transaction.date }}
+      </div>
+    </div>
+    <a class="btn btn-outline-secondary" href="{{ url_for('transactions.transactions') }}">
+      Back to Transactions
+    </a>
+  </div>
 
-  {% for stone in stones %}
-  <tr>
-    <td>{{ stone.stock_number }}</td>
-    <td>{{ stone.status }}</td>
-  </tr>
+  <div class="row g-3 mb-3">
+    <div class="col-md-3">
+      <div class="card h-100"><div class="card-body">
+        <div class="text-muted small">Status</div>
+        <div class="fw-semibold">{{ transaction.status|title }}</div>
+      </div></div>
+    </div>
+    {% if transaction.parent_transaction_id %}
+    <div class="col-md-4">
+      <div class="card h-100"><div class="card-body">
+        <div class="text-muted small">
+          {% if transaction.type == "invoice" %}Source Memo{% else %}Parent Invoice{% endif %}
+        </div>
+        {% if transaction.parent_transaction_number %}
+        <a href="{{ url_for('transactions.view_transaction', transaction_id=transaction.parent_transaction_id) }}">
+          {{ transaction.parent_transaction_number }}
+        </a>
+        {% else %}—{% endif %}
+      </div></div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% set return_state = namespace(count=0) %}
+  {% for item in stones %}
+    {% if item.status == "active" and (
+      transaction.type == "memo" and item.stone_inventory_status in ["M", "MEMO"]
+      or transaction.type == "invoice" and item.stone_inventory_status in ["S", "SOLD"]
+    ) %}
+      {% set return_state.count = return_state.count + 1 %}
+    {% endif %}
   {% endfor %}
-</table>
 
-<hr />
+  {% set conversion_state = namespace(count=0) %}
+  {% for item in stones %}
+    {% if transaction.type == "memo" and transaction.status == "active"
+          and item.status == "active"
+          and item.stone_inventory_status in ["M", "MEMO"] %}
+      {% set conversion_state.count = conversion_state.count + 1 %}
+    {% endif %}
+  {% endfor %}
 
-{% if transaction.type == 'memo' and transaction.status != 'completed' %}
+  {% set can_return_memo = transaction.type == "memo"
+      and current_user.role in ["ADMIN", "MANAGER", "SALES"] %}
+  {% set can_return_invoice = transaction.type == "invoice"
+      and current_user.role in ["ADMIN", "MANAGER", "ACCOUNTING"] %}
+  {% if transaction.status == "active" and return_state.count > 0
+        and (can_return_memo or can_return_invoice) %}
+  <div class="mb-3">
+    <a class="btn btn-warning"
+       href="{{ url_for('transactions.return_items', transaction_id=transaction.id) }}">
+      Return Items
+    </a>
+  </div>
+  {% endif %}
+  {% if transaction.type == "memo" and transaction.status == "active"
+        and conversion_state.count > 0
+        and current_user.role in ["ADMIN", "MANAGER", "ACCOUNTING"] %}
+  <div class="mb-3">
+    <a class="btn btn-primary"
+       href="{{ url_for('transactions.convert_memo_page', memo_id=transaction.id) }}">
+      Create Invoice from Memo
+    </a>
+  </div>
+  {% endif %}
 
-<!-- ================= RETURN FORM ================= -->
-<form
-  method="POST"
-  action="{{ url_for('transactions.return_stones',
-                       transaction_id=transaction.id) }}"
->
-  <h3>Return Stones</h3>
+  <div class="card">
+    <div class="card-header fw-semibold">Transaction Items</div>
+    <div class="table-responsive">
+      <table class="table table-striped align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Stock Number</th><th>Report</th><th>Lab</th><th>Shape</th>
+            <th>Weight</th><th>Price/Carat</th><th>Total</th>
+            <th>Item Status</th><th>Current Inventory State</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in stones %}
+          <tr>
+            <td>{{ item.stock_number }}</td>
+            <td>{{ item.report_number or "—" }}</td>
+            <td>{{ item.lab or "—" }}</td>
+            <td>{{ item.shape or "—" }}</td>
+            <td>{{ item.weight }}</td>
+            <td>
+              {% if item.price_per_carat is not none %}
+                {{ "${:,.2f}".format(item.price_per_carat) }}
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if item.total_price is not none %}
+                {{ "${:,.2f}".format(item.total_price) }}
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if item.status == "active" and transaction.type == "memo" %}Active on Memo
+              {% elif item.status == "active" and transaction.type == "invoice" %}Sold
+              {% elif item.status == "invoiced" %}
+                Invoiced
+                {% if item.child_transaction_number %}
+                  · <a href="{{ url_for('transactions.view_transaction', transaction_id=item.child_transaction_id) }}">
+                    {{ item.child_transaction_number }}
+                  </a>
+                {% endif %}
+              {% else %}{{ item.status|title }}{% endif %}
+            </td>
+            <td>
+              {% if item.stone_inventory_status == "RETURN_PENDING" %}
+                <span class="badge text-bg-warning">Awaiting physical receipt</span>
+              {% else %}
+                {{ item.stone_inventory_status }}
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="9" class="text-center text-muted py-4">No transaction items.</td></tr>
+          {% endfor %}
+        </tbody>
+        {% if transaction.type == "credit_invoice" %}
+        <tfoot>
+          <tr>
+            <th colspan="6" class="text-end">Credit total</th>
+            <th>{{ "${:,.2f}".format(stones|sum(attribute='total_price')) }}</th>
+            <th colspan="2"></th>
+          </tr>
+        </tfoot>
+        {% endif %}
+      </table>
+    </div>
+  </div>
 
-  <table class="table">
-    <tr>
-      <th></th>
-      <th>Stock #</th>
-      <th>Status</th>
-    </tr>
-
-    {% for stone in stones %}
-    <tr>
-      <td>
-        <input
-          type="checkbox"
-          name="stone_ids"
-          value="{{ stone.stone_id }}"
-          {%
-          if
-          stone.status
-          !="active"
-          %}disabled{%
-          endif
-          %}
-        />
-      </td>
-
-      <td>{{ stone.stock_number }}</td>
-      <td>{{ stone.status }}</td>
-    </tr>
-    {% endfor %}
-  </table>
-
-  <button type="submit" class="btn btn-warning">Mark Returning</button>
-</form>
-
-<hr />
-
-<!-- ================= CREATE INVOICE FORM ================= -->
-<form
-  method="POST"
-  action="{{ url_for('transactions.create_invoice_from_memo',
-                       transaction_id=transaction.id) }}"
->
-  <h3>Create Invoice</h3>
-
-  <table class="table">
-    <tr>
-      <th></th>
-      <th>Stock #</th>
-      <th>Status</th>
-    </tr>
-
-    {% for stone in stones %}
-    <tr>
-      <td>
-        <input
-          type="checkbox"
-          name="stone_ids"
-          value="{{ stone.stone_id }}"
-          {%
-          if
-          stone.status
-          !="active"
-          %}disabled{%
-          endif
-          %}
-        />
-      </td>
-
-      <td>{{ stone.stock_number }}</td>
-      <td>{{ stone.status }}</td>
-    </tr>
-    {% endfor %}
-  </table>
-
-  <button type="submit" class="btn btn-success">Create Invoice</button>
-</form>
-
-{% elif transaction.type == 'invoice' and transaction.status != 'return' %}
-
-<!-- ================= CREDIT INVOICE FORM ================= -->
-<form
-  method="POST"
-  action="{{ url_for('transactions.credit_invoice',
-                       transaction_id=transaction.id) }}"
->
-  <h3>Credit Invoice</h3>
-
-  <table class="table">
-    <tr>
-      <th></th>
-      <th>Stock #</th>
-      <th>Status</th>
-    </tr>
-
-    {% for stone in stones %} {% if stone.status == "active" %}
-    <tr>
-      <td>
-        <input type="checkbox" name="stone_ids" value="{{ stone.stone_id }}" />
-      </td>
-
-      <td>{{ stone.stock_number }}</td>
-      <td>{{ stone.status }}</td>
-    </tr>
-    {% endif %} {% endfor %}
-  </table>
-
-  <button type="submit" class="btn btn-danger">Credit Invoice</button>
-</form>
-
-{% endif %} {% endblock %}
+  {% if transaction.type == "memo" and child_invoices %}
+  <div class="card mt-3">
+    <div class="card-header fw-semibold">Child Invoices</div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr><th>Invoice</th><th>Date</th><th>Status</th><th>Items</th><th>Total</th></tr>
+        </thead>
+        <tbody>
+          {% for invoice in child_invoices %}
+          <tr>
+            <td><a href="{{ url_for('transactions.view_transaction', transaction_id=invoice.id) }}">
+              {{ invoice.transaction_number }}
+            </a></td>
+            <td>{{ invoice.date }}</td>
+            <td>{{ invoice.status|title }}</td>
+            <td>{{ invoice.item_count }}</td>
+            <td>{{ "${:,.2f}".format(invoice.total_price) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

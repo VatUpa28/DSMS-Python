@@ -12,6 +12,7 @@
         <div class="card-body">
 
             <form method="POST" action="/clients/{{ client_id }}/shipping/create">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <div class="row g-2">
 

@@ -1,4 +1,5 @@
 from flask import Blueprint, request, render_template, redirect, jsonify
+from auth import require_roles
 from database.db import get_db
 import sqlite3
 
@@ -11,7 +12,16 @@ def clients():
     conn = get_db()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM clients ORDER BY name")
+    cursor.execute(
+        """
+        SELECT c.*, COUNT(s.id) AS held_stone_count
+        FROM clients c
+        LEFT JOIN stones s
+          ON s.hold_client_id = c.id AND s.status IN ('H', 'HOLD')
+        GROUP BY c.id
+        ORDER BY c.name
+        """
+    )
     clients = cursor.fetchall()
 
     conn.close()
@@ -20,6 +30,7 @@ def clients():
 
 
 @clients_bp.route("/clients/create", methods=["GET", "POST"])
+@require_roles("ADMIN", "MANAGER", "SALES")
 def create_client():
 
     conn = get_db()

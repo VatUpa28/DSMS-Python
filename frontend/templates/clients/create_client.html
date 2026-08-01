@@ -6,6 +6,7 @@
     <h3>Create Client</h3>
 
     <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <div class="row g-2">
 

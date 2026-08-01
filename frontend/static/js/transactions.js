@@ -134,7 +134,7 @@ async function handleReturn(e) {
   e.preventDefault();
 
   const form = e.target;
-  const res = await fetch(form.action, {
+  const res = await dsmsFetch(form.action, {
     method: "POST",
     body: new FormData(form),
   });
@@ -147,23 +147,9 @@ async function handleReturn(e) {
   window.location.reload();
 }
 
-function submitAction(action) {
-  const form = document.getElementById("memoForm");
-
-  const formData = new FormData(form);
-
-  // DEBUG
-  console.log([...formData.entries()]);
-
-  fetch(`/transactions/${TRANSACTION_ID}/create-invoice`, {
-    method: "POST",
-    body: formData,
-  });
-}
-
 const memoForm = document.querySelector('form[action="/create-memo"]');
 
-memoForm.addEventListener("submit", (e) => {
+memoForm?.addEventListener("submit", (e) => {
   if (document.activeElement.id === "barcodeInput") {
     e.preventDefault();
   }

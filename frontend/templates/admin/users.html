@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}User Management - DSMS{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-1">User Management</h1>
+        <p class="text-muted mb-0">Create accounts and manage access to DSMS.</p>
+    </div>
+    <a class="btn btn-primary" href="{{ url_for('admin_users.new_user') }}">Add User</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-striped align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th>Role</th>
+                    <th>Created</th>
+                    <th class="text-end">Account</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for user in users %}
+                <tr>
+                    <td>{{ user.first_name }} {{ user.last_name }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>
+                        {% if user.active %}
+                            <span class="badge text-bg-success">Active</span>
+                        {% else %}
+                            <span class="badge text-bg-secondary">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <form method="post"
+                              action="{{ url_for('admin_users.update_role', user_id=user.id) }}"
+                              class="d-flex gap-2">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <select class="form-select form-select-sm" name="role"
+                                    aria-label="Role for {{ user.email }}"
+                                    {% if user.id == actor_user_id %}disabled{% endif %}>
+                                {% for role in role_options %}
+                                    <option value="{{ role }}" {% if user.role == role %}selected{% endif %}>
+                                        {{ role }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            {% if user.id != actor_user_id %}
+                                <button class="btn btn-outline-primary btn-sm" type="submit">Save</button>
+                            {% else %}
+                                <span class="small text-muted align-self-center">Current user</span>
+                            {% endif %}
+                        </form>
+                    </td>
+                    <td>{{ user.created_at }}</td>
+                    <td class="text-end">
+                        {% if user.active %}
+                            <form method="post"
+                                  action="{{ url_for('admin_users.deactivate', user_id=user.id) }}"
+                                  class="d-inline"
+                                  onsubmit="return confirm('Deactivate this user?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button class="btn btn-outline-danger btn-sm" type="submit"
+                                        {% if user.id == actor_user_id %}disabled{% endif %}>
+                                    Deactivate
+                                </button>
+                            </form>
+                        {% else %}
+                            <form method="post"
+                                  action="{{ url_for('admin_users.reactivate', user_id=user.id) }}"
+                                  class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button class="btn btn-outline-success btn-sm" type="submit">Reactivate</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">No users found.</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

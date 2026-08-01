@@ -3,13 +3,16 @@
 <div class="container-fluid mt-4">
   <h2>Clients</h2>
 
+  {% if current_user.role in ["ADMIN", "MANAGER", "SALES"] %}
   <a href="/clients/create" class="btn btn-primary mb-3">New Client</a>
+  {% endif %}
 
   <table class="table table-bordered">
     <tr>
       <th>Code</th>
       <th>Name</th>
       <th>Address</th>
+      <th>Held Stones</th>
       <th>Actions</th>
     </tr>
 
@@ -18,6 +21,11 @@
       <td>{{ c.code }}</td>
       <td>{{ c.name }}</td>
       <td>{{ c.address }}</td>
+      <td>
+        <a href="{{ url_for('holds.holds_page', client=c.code) }}">
+          {{ c.held_stone_count }}
+        </a>
+      </td>
 
       <td>
         <a class="btn btn-sm btn-primary" href="/clients/{{ c.id }}/contacts">

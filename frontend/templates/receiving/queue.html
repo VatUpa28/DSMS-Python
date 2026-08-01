@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Physical Receiving - DSMS{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" id="receiving-workspace">
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <h1 class="h3 mb-1">Physical Receiving</h1>
+      <p class="text-muted mb-0">Only Stones awaiting physical receipt may be checked in.</p>
+    </div>
+    <a class="btn btn-outline-secondary"
+       href="{{ url_for('transactions.receiving_history') }}">Receiving History</a>
+  </div>
+  <div id="receiving-alert" class="alert d-none" role="alert"></div>
+
+  <div class="card mb-3">
+    <div class="card-header fw-semibold">Scan or Find Stock Numbers</div>
+    <div class="card-body">
+      <form method="GET" action="{{ url_for('transactions.receiving_queue') }}"
+            class="row g-2 align-items-end mb-3">
+        <div class="col-lg-6">
+          <label class="form-label" for="receiving-filter">Stock number contains</label>
+          <input class="form-control" id="receiving-filter" name="q" value="{{ query }}">
+        </div>
+        <div class="col-lg-6 d-flex gap-2">
+          <button class="btn btn-primary" type="submit">Filter Queue</button>
+          <a class="btn btn-outline-secondary"
+             href="{{ url_for('transactions.receiving_queue') }}">Clear Filter</a>
+        </div>
+      </form>
+      <div class="row g-3">
+        <div class="col-lg-5">
+          <label class="form-label" for="receiving-scan">Exact stock number scan</label>
+          <div class="input-group">
+            <input class="form-control" id="receiving-scan" autocomplete="off">
+            <button class="btn btn-outline-primary" id="add-scan" type="button">Add</button>
+          </div>
+        </div>
+        <div class="col-lg-7">
+          <label class="form-label" for="receiving-bulk">Multiple stock numbers</label>
+          <textarea class="form-control" id="receiving-bulk" rows="2"
+                    placeholder="Paste up to 100 stock numbers"></textarea>
+          <div class="d-flex gap-2 mt-2">
+            <button class="btn btn-outline-primary" id="select-bulk" type="button">
+              Select Matching
+            </button>
+            <button class="btn btn-outline-secondary" id="clear-receiving-search" type="button">
+              Clear Search
+            </button>
+            <span class="form-text"><span id="receiving-bulk-count">0</span> normalized</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <form id="receiving-form">
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Awaiting Receipt</div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Receive</th><th>Stock Number</th><th>Report</th><th>Lab</th>
+              <th>Shape</th><th>Weight</th><th>Source Transaction</th>
+              <th>Source Type</th><th>Client</th><th>Return Date</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="receiving-rows">
+            {% for stone in stones %}
+            <tr data-stone-id="{{ stone.id }}" data-stock-number="{{ stone.stock_number }}">
+              <td><input class="form-check-input receiving-item" type="checkbox" value="{{ stone.id }}"></td>
+              <td>{{ stone.stock_number }}</td>
+              <td>{{ stone.report_number or "—" }}</td>
+              <td>{{ stone.lab or "—" }}</td>
+              <td>{{ stone.shape or "—" }}</td>
+              <td>{{ stone.weight or "—" }}</td>
+              <td>{{ stone.source_transaction_number or "—" }}</td>
+              <td>{{ stone.source_transaction_type|replace('_', ' ')|title if stone.source_transaction_type else "—" }}</td>
+              <td>{{ stone.client_name or "—" }}</td>
+              <td>{{ stone.return_date or "—" }}</td>
+              <td><span class="badge text-bg-warning">RETURN_PENDING</span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="11" class="text-center text-muted py-4">Nothing is awaiting physical receipt.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body row g-3 align-items-end">
+        <div class="col-md-2"><strong id="receiving-count">0</strong><br><small>Selected</small></div>
+        <div class="col-md-7">
+          <label class="form-label" for="receiving-note">Optional receiving note</label>
+          <textarea class="form-control" id="receiving-note" rows="2"></textarea>
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-success w-100" id="receive-selected" type="submit">
+            Receive Selected Stones
+          </button>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+<script src="{{ url_for('static', filename='js/receiving.js') }}"></script>
+{% endblock %}

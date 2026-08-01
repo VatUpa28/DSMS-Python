@@ -1,10 +1,157 @@
-from flask import Blueprint, render_template, request, redirect, url_for, jsonify
+from flask import Blueprint, jsonify, render_template, request
+from auth import login_required, require_roles, current_user
 from database.db import get_db
 
 inventory_bp = Blueprint("inventory", __name__)
 
 
+def _context_filters():
+    raw_numbers = request.args.get("stock_numbers", "")
+    numbers = []
+    seen = set()
+    for value in raw_numbers.replace(",", " ").split():
+        value = value.strip()
+        if value and value not in seen:
+            seen.add(value)
+            numbers.append(value)
+    if len(numbers) > 25:
+        raise ValueError("A maximum of 25 stock numbers may be searched at once")
+    minimum = request.args.get("min_weight", "").strip()
+    maximum = request.args.get("max_weight", "").strip()
+    try:
+        if minimum and maximum and float(minimum) > float(maximum):
+            raise ValueError("Minimum weight must not exceed maximum weight")
+    except ValueError as error:
+        if str(error).startswith("Minimum"):
+            raise
+        raise ValueError("Weight filters must be valid numbers") from error
+    return {
+        "stock_numbers": numbers,
+        "stock_number": request.args.get("stock_number", "").strip(),
+        "memo_number": request.args.get("memo_number", "").strip(),
+        "lab": request.args.get("lab", "").strip(),
+        "shape": request.args.get("shape", "").strip(),
+        "min_weight": minimum,
+        "max_weight": maximum,
+        "color": request.args.get("color", "").strip(),
+        "clarity": request.args.get("clarity", "").strip(),
+        "cut": request.args.get("cut", "").strip(),
+        "polish": request.args.get("polish", "").strip(),
+        "symmetry": request.args.get("symmetry", "").strip(),
+        "fluorescence": request.args.get("fluorescence", "").strip(),
+    }
+
+
+def _append_filters(sql, params, filters, alias, stock_alias=None):
+    stock_alias = stock_alias or alias
+    if filters["stock_numbers"]:
+        marks = ",".join("?" for _ in filters["stock_numbers"])
+        sql += f" AND {stock_alias}.stock_number IN ({marks})"
+        params.extend(filters["stock_numbers"])
+    if filters["stock_number"]:
+        sql += f" AND {stock_alias}.stock_number LIKE ?"
+        params.append(f"%{filters['stock_number']}%")
+    for field in ("lab", "shape", "color", "clarity", "cut", "polish", "symmetry"):
+        if filters[field]:
+            sql += f" AND {alias}.{field} = ?"
+            params.append(filters[field])
+    if filters["fluorescence"]:
+        sql += f" AND {alias}.fluorescence_intensity = ?"
+        params.append(filters["fluorescence"])
+    if filters["min_weight"]:
+        sql += f" AND {alias}.weight >= ?"
+        params.append(filters["min_weight"])
+    if filters["max_weight"]:
+        sql += f" AND {alias}.weight <= ?"
+        params.append(filters["max_weight"])
+    return sql
+
+
+@inventory_bp.route("/api/inventory/client-context/<int:client_id>")
+@require_roles("ADMIN", "MANAGER", "SALES", "ACCOUNTING")
+def client_inventory_context(client_id):
+    try:
+        filters = _context_filters()
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    conn = get_db()
+    try:
+        client = conn.execute("SELECT * FROM clients WHERE id = ?", (client_id,)).fetchone()
+        if client is None:
+            return jsonify({"error": "Selected client does not exist"}), 404
+        contacts = conn.execute(
+            "SELECT id, name, phone, email, fax, cell FROM client_contacts WHERE client_id = ? ORDER BY name, id",
+            (client_id,),
+        ).fetchall()
+        addresses = conn.execute(
+            """SELECT id, label, manager, store_number, address, city, state, country, phone
+               FROM shipping_addresses WHERE client_id = ? ORDER BY label, id""",
+            (client_id,),
+        ).fetchall()
+        base = """
+            SELECT s.id, s.stock_number, s.status, s.hold_client_id,
+                   gr.report_number, gr.lab, gr.shape, gr.weight, gr.color, gr.clarity,
+                   gr.cut, gr.polish, gr.symmetry, gr.fluorescence_intensity,
+                   gr.price_per_carat, gr.total_price
+            FROM stones s
+            LEFT JOIN grading_reports gr ON gr.id = (
+              SELECT g.id FROM grading_reports g WHERE g.stone_id=s.id AND g.active=1
+              ORDER BY g.id DESC LIMIT 1)
+            WHERE {condition}
+        """
+        available_params = []
+        available_sql = _append_filters(base.format(condition="s.status IN ('Y','AVAILABLE')"), available_params, filters, "gr", "s")
+        held_params = [client_id]
+        held_sql = _append_filters(
+            base.format(condition="s.status IN ('H','HOLD') AND s.hold_client_id = ?"),
+            held_params, filters, "gr", "s")
+        available = conn.execute(available_sql + " ORDER BY s.stock_number LIMIT 200", available_params).fetchall()
+        held = conn.execute(held_sql + " ORDER BY s.stock_number LIMIT 200", held_params).fetchall()
+
+        memo_params = [client_id]
+        memo_sql = """
+            SELECT ti.*, t.id AS memo_id, t.transaction_number AS memo_number,
+                   t.date AS memo_date, t.status AS memo_status, t.client_id AS source_client_id
+            FROM transactions t
+            JOIN transaction_items ti ON ti.transaction_id = t.id
+            JOIN stones s ON s.id = ti.stone_id
+            WHERE t.client_id = ? AND t.type = 'memo' AND t.status = 'active'
+              AND ti.status = 'active' AND s.status IN ('M','MEMO')
+        """
+        memo_sql = _append_filters(memo_sql, memo_params, filters, "ti")
+        if filters["memo_number"]:
+            memo_sql += " AND t.transaction_number LIKE ?"
+            memo_params.append(f"%{filters['memo_number']}%")
+        memo_items = conn.execute(memo_sql + " ORDER BY t.date, t.id, ti.stock_number LIMIT 300", memo_params).fetchall()
+        groups = []
+        by_memo = {}
+        for row in memo_items:
+            group = by_memo.get(row["memo_id"])
+            if group is None:
+                group = {"memo_id": row["memo_id"], "memo_number": row["memo_number"],
+                         "memo_date": row["memo_date"], "memo_status": row["memo_status"], "items": []}
+                by_memo[row["memo_id"]] = group
+                groups.append(group)
+            group["items"].append(dict(row))
+        active_count = conn.execute(
+            "SELECT COUNT(*) FROM transactions WHERE client_id=? AND type='memo' AND status='active'",
+            (client_id,),).fetchone()[0]
+        held_count = conn.execute(
+            "SELECT COUNT(*) FROM stones WHERE hold_client_id=? AND status IN ('H','HOLD')",
+            (client_id,),).fetchone()[0]
+        return jsonify({
+            "client": dict(client), "contacts": [dict(row) for row in contacts],
+            "shipping_addresses": [dict(row) for row in addresses],
+            "active_memo_count": active_count, "held_stone_count": held_count,
+            "available_stones": [dict(row) for row in available],
+            "held_stones": [dict(row) for row in held], "memo_groups": groups,
+        })
+    finally:
+        conn.close()
+
+
 @inventory_bp.route("/inventory", methods=["GET"])
+@login_required
 def inventory():
     conn = get_db()
     try:
@@ -47,11 +194,16 @@ def inventory():
 
         query = """
             SELECT
-                *
+                stones.*,
+                grading_reports.*,
+                hold_client.code AS hold_client_code,
+                hold_client.name AS hold_client_name
 
             FROM stones
             LEFT JOIN grading_reports
                 ON grading_reports.stone_id = stones.id
+            LEFT JOIN clients hold_client
+                ON hold_client.id = stones.hold_client_id
             WHERE 1=1
         """
 
@@ -104,6 +256,7 @@ def inventory():
         display_columns = [
             "stock_number",
             "status",
+            "hold_client",
             "shape",
             "size",
             "weight",
@@ -155,61 +308,10 @@ def inventory():
         return render_template(
             "inventory.html",
             stones=rows,
-            display_columns=display_columns
+            display_columns=display_columns,
+            can_create_memo=current_user()["role"] in {"ADMIN", "MANAGER", "SALES"},
+            can_convert_memo=current_user()["role"] in {"ADMIN", "MANAGER", "ACCOUNTING"},
         )
 
     finally:
         conn.close()
-
-@inventory_bp.route("/hold-stones", methods=["POST"])
-def hold_stones():
-
-    client_id = request.form.get("client_id")
-    stone_ids = request.form.getlist("stone_ids")
-
-    if not client_id:
-        return "Client required", 400
-
-    if not stone_ids:
-        return "No stones selected", 400
-
-    conn = get_db()
-    cursor = conn.cursor()
-
-    placeholders = ",".join(["?"] * len(stone_ids))
-
-    cursor.execute(f"""
-    UPDATE stones
-    SET status = 'H',
-        hold_client_id = ?
-    WHERE id IN ({placeholders})
-""", [client_id] + stone_ids)
-
-    conn.commit()
-    conn.close()
-
-    return redirect(url_for("inventory.inventory"))
-
-@inventory_bp.route("/inventory/hold-info/<int:stone_id>")
-def hold_info(stone_id):
-
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT c.name
-        FROM stones s
-        JOIN clients c ON c.id = s.hold_client_id
-        WHERE s.id = ?
-          AND s.hold_client_id IS NOT NULL
-    """, (stone_id,))
-
-    row = cursor.fetchone()
-    conn.close()
-
-    if not row:
-        return jsonify({"error": "No active hold"}), 404
-
-    return jsonify({
-        "client_name": row["name"]
-    })

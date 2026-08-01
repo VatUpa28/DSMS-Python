@@ -1,17 +1,18 @@
 from flask import Blueprint, request, redirect, url_for
+from auth import require_roles
 from database.db import get_db
 from services.stone_service import create_stone, generate_stock_number
 from utils.stone_utils import get_size_from_weight
 from constants.stone_fields import (
     allowed_stone_fields)
 from constants.csv_to_db import csv_to_db
-from utils.barcode_generator import generate_barcode
 import io, csv
 
 add_stone_bp = Blueprint("add_stone", __name__)
 
 
 @add_stone_bp.route("/add-stone", methods=["POST"])
+@require_roles("ADMIN", "MANAGER")
 def add_stone():
     conn = get_db()
     try:
@@ -27,6 +28,7 @@ add_stones_bp = Blueprint("add_stones", __name__)
 
 
 @add_stones_bp.route("/add-stones", methods=["POST"])
+@require_roles("ADMIN", "MANAGER")
 def add_stones():
     conn = get_db()
 
@@ -80,9 +82,6 @@ def add_stones():
                 grading_data["shape"]
             )
 
-            barcode_path = generate_barcode(stone_data["stock_number"])
-            stone_data["barcode_path"] = barcode_path
-            
             cols = ", ".join(stone_data.keys())
             qs = ", ".join(["?"] * len(stone_data))
 

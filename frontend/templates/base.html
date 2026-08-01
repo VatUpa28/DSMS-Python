@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="csrf-token" content="{{ csrf_token() }}" />
     <title>DiamondStar Management System</title>
 
     <link
@@ -23,9 +24,11 @@
   </head>
 
   <body>
+    {% if current_user %}
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow">
       <div class="container-fluid">
         <!-- DROPDOWN TRIGGER -->
+        {% if current_user.role in ["ADMIN", "MANAGER"] %}
         <a
           class="navbar-brand dropdown-toggle"
           href="#"
@@ -35,9 +38,14 @@
         >
           DSMS
         </a>
+        {% else %}
+        <a class="navbar-brand" href="{{ url_for('inventory.inventory') }}">DSMS</a>
+        {% endif %}
 
         <!-- DROPDOWN MENU -->
+        {% if current_user.role in ["ADMIN", "MANAGER"] %}
         <ul class="dropdown-menu">
+          {% if current_user.role in ["ADMIN", "MANAGER"] %}
           <li>
             <button
               class="dropdown-item"
@@ -67,6 +75,8 @@
               Upload Rapaport
             </button>
           </li>
+          {% endif %}
+          {% if current_user.role in ["ADMIN", "MANAGER"] %}
           <li>
             <button
               class="dropdown-item"
@@ -76,16 +86,16 @@
               Upload Discounts
             </button>
           </li>
+          {% endif %}
+          {% if current_user.role in ["ADMIN", "MANAGER"] %}
           <li>
-            <button
-              class="dropdown-item"
-              data-bs-toggle="modal"
-              data-bs-target="#returnModal"
-            >
-              Return
-            </button>
+            <a class="dropdown-item" href="{{ url_for('transactions.receiving_queue') }}">
+              Receiving
+            </a>
           </li>
+          {% endif %}
         </ul>
+        {% endif %}
 
         <!-- NAV LINKS -->
         <div class="collapse navbar-collapse">
@@ -111,12 +121,39 @@
                 Transactions
               </a>
             </li>
+            {% if current_user.role in ["ADMIN", "MANAGER", "SALES"] %}
             <li class="nav-item">
               <a class="nav-link fs-5" href="{{ url_for('barcode.barcodes') }}"
                 >Barcodes</a
               >
             </li>
+            {% endif %}
+            {% if current_user.role == "ADMIN" %}
+            <li class="nav-item">
+              <a class="nav-link fs-5" href="{{ url_for('admin_users.user_list') }}">
+                User Management
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link fs-5" href="{{ url_for('holds.holds_page') }}">
+                Holds
+              </a>
+            </li>
+            {% endif %}
           </ul>
+          <div class="d-flex align-items-center gap-3 text-white">
+            <div class="text-end small">
+              <div>{{ current_user.display_name }}</div>
+              <div class="text-white-50">{{ current_user.role }}</div>
+            </div>
+            <a class="btn btn-outline-light btn-sm" href="{{ url_for('auth.change_password') }}">
+              Change Password
+            </a>
+            <form method="POST" action="{{ url_for('auth.logout') }}" class="m-0">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+              <button type="submit" class="btn btn-light btn-sm">Logout</button>
+            </form>
+          </div>
         </div>
       </div>
     </nav>
@@ -134,6 +171,7 @@
             ></button>
           </div>
           <form method="POST" action="{{ url_for('add_stone.add_stone') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
             <div class="modal-body">
               <div class="mb-3">
                 <label class="form-label">Stock Number Preview</label>
@@ -638,6 +676,7 @@
             action="{{ url_for('add_stones.add_stones') }}"
             enctype="multipart/form-data"
           >
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
             <div class="modal-body">
               <input type="file" name="file" accept=".csv" />
             </div>
@@ -674,6 +713,7 @@
             action="{{ url_for('upload_rapaport.upload_rapaport') }}"
             enctype="multipart/form-data"
           >
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
             <div class="modal-body">
               <label class="mt-3">Round Prices CSV</label>
               <input type="file" name="round_file" accept=".csv" required />
@@ -717,6 +757,7 @@
             action="{{ url_for('discount.upload_discount') }}"
             enctype="multipart/form-data"
           >
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
             <div class="modal-body">
               <label class="form-label">Mode</label>
 
@@ -760,50 +801,41 @@
         </div>
       </div>
     </div>
-    <div class="modal fade" id="returnModal" tabindex="-1">
-      <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Return Stones</h5>
-
-            <button
-              type="button"
-              class="btn-close"
-              data-bs-dismiss="modal"
-            ></button>
-          </div>
-
-          <div class="modal-body">
-            <input
-              id="returnBarcodeInput"
-              class="form-control mb-3"
-              placeholder="Scan barcode"
-            />
-
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Stock #</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-
-              <tbody id="returnList"></tbody>
-            </table>
-          </div>
-
-          <div class="modal-footer">
-            <button class="btn btn-success" id="processReturnBtn">
-              Process Return
-            </button>
-          </div>
-        </div>
+    {% else %}
+    <nav class="navbar navbar-dark bg-dark shadow">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="{{ url_for('auth.login') }}">DSMS</a>
+        <a class="btn btn-outline-light btn-sm" href="{{ url_for('auth.login') }}">Sign In</a>
       </div>
-    </div>
+    </nav>
+    {% endif %}
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="container mt-3">
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category if category in ['success', 'warning', 'danger', 'info'] else 'info' }}" role="alert">
+          {{ message }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+
     {% block content %}{% endblock %}
+    {% if current_user %}
+    <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
     <script src="{{ url_for('static', filename='js/transactions.js') }}"></script>
     <script src="{{ url_for('static', filename='js/stones.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/returns.js') }}"></script>
     <script src="{{ url_for('static', filename='js/barcodes.js') }}"></script>
+    {% endif %}
+    <script>
+      document.querySelectorAll("form[data-disable-on-submit]").forEach((form) => {
+        form.addEventListener("submit", () => {
+          const button = form.querySelector('button[type="submit"]');
+          if (button) button.disabled = true;
+        });
+      });
+    </script>
   </body>
 </html>

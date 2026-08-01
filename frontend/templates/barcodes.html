@@ -4,7 +4,7 @@
 <div class="container py-4">
 
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3>Barcode Gallery</h3>
+        <h3>Barcode Printing</h3>
 
         <div>
             <button id="selectAllBtn" class="btn btn-sm btn-primary">
@@ -16,7 +16,7 @@
             </button>
 
             <button id="generatePdfBtn" class="btn btn-sm btn-success">
-                Generate PDF
+                Print Selected Labels
             </button>
         </div>
     </div>
@@ -26,7 +26,6 @@
             <tr>
                 <th width="50"></th>
                 <th>Stock #</th>
-                <th>Barcode</th>
                 <th width="150">Actions</th>
             </tr>
         </thead>
@@ -46,14 +45,10 @@
                 </td>
 
                 <td>
-                    <img src="{{ url_for('static', filename=s.barcode_path) }}"
-                         style="height:60px;">
-                </td>
-
-                <td>
                     <a class="btn btn-sm btn-outline-primary"
-                       href="{{ url_for('barcode.barcodes', stone_id=s.id) }}">
-                        Open
+                       target="_blank"
+                       href="{{ url_for('barcode.print_one', stone_id=s.id) }}">
+                        Print
                     </a>
                 </td>
 

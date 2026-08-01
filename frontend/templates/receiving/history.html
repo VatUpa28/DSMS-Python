@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Receiving History - DSMS{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Receiving History</h1>
+    <a class="btn btn-outline-secondary" href="{{ url_for('transactions.receiving_queue') }}">
+      Back to Receiving
+    </a>
+  </div>
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-striped align-middle mb-0">
+        <thead>
+          <tr><th>Received</th><th>Stock Number</th><th>Source Transaction</th>
+            <th>Received By</th><th>Note</th></tr>
+        </thead>
+        <tbody>
+          {% for event in events %}
+          <tr>
+            <td>{{ event.received_at }}</td>
+            <td>{{ event.stock_number_snapshot }}</td>
+            <td>{{ event.source_transaction_number or "—" }}</td>
+            <td>
+              {% if event.email %}
+                {{ event.first_name }} {{ event.last_name }} ({{ event.email }})
+                {% if not event.user_active %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}
+              {% else %}Former user{% endif %}
+            </td>
+            <td>{{ event.note or "—" }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-center text-muted py-4">No receiving history.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

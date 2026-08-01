@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<main class="container py-5">
+  <div class="alert alert-warning shadow-sm" role="alert">
+    <h1 class="h3">Access denied</h1>
+    <p>Your account does not have permission to perform this action.</p>
+    <a class="btn btn-outline-dark" href="{{ url_for('inventory.inventory') }}">Return to Inventory</a>
+  </div>
+</main>
+{% endblock %}

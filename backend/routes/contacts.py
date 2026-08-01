@@ -1,4 +1,5 @@
 from flask import Blueprint, request, render_template, redirect, url_for
+from auth import require_roles
 from database.db import get_db
 
 contacts_bp = Blueprint("contacts", __name__)
@@ -23,6 +24,7 @@ def contacts(client_id):
 
 
 @contacts_bp.route("/clients/<int:client_id>/contacts/create", methods=["POST"])
+@require_roles("ADMIN", "MANAGER", "SALES")
 def create_contact(client_id):
 
     conn = get_db()

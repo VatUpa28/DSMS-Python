@@ -1,7 +1,6 @@
     CREATE TABLE stones (
         id INTEGER PRIMARY KEY,
         stock_number TEXT NOT NULL UNIQUE,
-        barcode_path TEXT NOT NULL UNIQUE,
 
         status TEXT NOT NULL,
         hold_client_id INTEGER,
@@ -185,6 +184,19 @@
         ship_charge REAL NOT NULL,
 
         ship_to_address_id INTEGER,
+        source_shipping_address_id INTEGER,
+        ship_to_label TEXT,
+        ship_to_manager TEXT,
+        ship_to_store_number TEXT,
+        ship_to_address_snapshot TEXT,
+        ship_to_city TEXT,
+        ship_to_state TEXT,
+        ship_to_country TEXT,
+        ship_to_phone TEXT,
+
+        source_contact_id INTEGER,
+        contact_email_snapshot TEXT,
+        contact_cell_snapshot TEXT,
         purchase_order_number TEXT,
 
         FOREIGN KEY (client_id)
@@ -192,6 +204,12 @@
 
         FOREIGN KEY (ship_to_address_id)
             REFERENCES shipping_addresses(id),
+
+        FOREIGN KEY (source_shipping_address_id)
+            REFERENCES shipping_addresses(id),
+
+        FOREIGN KEY (source_contact_id)
+            REFERENCES client_contacts(id),
 
         FOREIGN KEY (parent_transaction_id)
             REFERENCES transactions(id)
@@ -215,7 +233,8 @@
                     'active',
                     'return',
                     'returned',
-                    'credited'
+                    'credited',
+                    'invoiced'
                 )
             ),
 
@@ -259,6 +278,46 @@
         last_number INTEGER NOT NULL
     );
 
+    CREATE TABLE users (
+        id INTEGER PRIMARY KEY,
+        email TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('ADMIN', 'MANAGER', 'SALES', 'ACCOUNTING')),
+        active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE transaction_number_counters (
+        transaction_type TEXT NOT NULL CHECK(transaction_type IN ('memo', 'invoice', 'credit_invoice')),
+        transaction_date DATE NOT NULL,
+        last_value INTEGER NOT NULL CHECK(last_value >= 0),
+        PRIMARY KEY (transaction_type, transaction_date)
+    );
+
+    CREATE TABLE receiving_events (
+        id INTEGER PRIMARY KEY,
+        stone_id INTEGER NOT NULL,
+        stock_number_snapshot TEXT NOT NULL,
+        source_transaction_id INTEGER,
+        source_transaction_item_id INTEGER,
+        received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        received_by_user_id INTEGER NOT NULL,
+        note TEXT,
+
+        FOREIGN KEY (stone_id) REFERENCES stones(id),
+        FOREIGN KEY (source_transaction_id) REFERENCES transactions(id),
+        FOREIGN KEY (source_transaction_item_id) REFERENCES transaction_items(id),
+        FOREIGN KEY (received_by_user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE schema_migrations (
+        name TEXT PRIMARY KEY,
+        applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE INDEX idx_clients_code ON clients(code);
 
     CREATE INDEX idx_grading_reports_stone ON grading_reports(stone_id);
@@ -266,3 +325,6 @@
     CREATE INDEX idx_transaction_items_tx ON transaction_items(transaction_id);
 
     CREATE INDEX idx_transaction_items_stone ON transaction_items(stone_id);
+
+    CREATE INDEX idx_receiving_events_stone ON receiving_events(stone_id);
+    CREATE INDEX idx_receiving_events_received_at ON receiving_events(received_at);

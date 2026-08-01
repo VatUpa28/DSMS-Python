@@ -1,4 +1,5 @@
 from flask import Blueprint, request, redirect, url_for
+from auth import require_roles
 from services.apply_discount_row import apply_discount_row
 from database.db import get_db
 import csv
@@ -10,6 +11,7 @@ from services.pricing_service import recalculate_stone_price
 discount_bp = Blueprint("discount", __name__)
 
 @discount_bp.route("/upload-discount", methods=["POST"])
+@require_roles("ADMIN", "MANAGER")
 def upload_discount():
 
     file = request.files.get("file")

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Return Items - {{ transaction.transaction_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" id="return-workspace">
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <h1 class="h3 mb-1">Return Items</h1>
+      <div class="text-muted">
+        {{ transaction.transaction_number }} · {{ transaction.type|title }} ·
+        {{ transaction.client_name }} · {{ transaction.date }}
+      </div>
+    </div>
+    <a class="btn btn-outline-secondary"
+       href="{{ url_for('transactions.view_transaction', transaction_id=transaction.id) }}">
+      Cancel
+    </a>
+  </div>
+
+  <div class="alert alert-warning">
+    The selected Stones will be marked as awaiting physical receipt. They will not
+    become available until Receiving checks them in.
+  </div>
+
+  {% if returnable_items %}
+  <form method="POST"
+        id="return-items-form"
+        action="{{ url_for('transactions.return_items', transaction_id=transaction.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between">
+        <span class="fw-semibold">Returnable Items</span>
+        <span>Partial returns are supported; unselected items remain active.</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Select</th><th>Stock Number</th><th>Report</th><th>Lab</th>
+              <th>Shape</th><th>Weight</th><th>Color</th><th>Clarity</th>
+              <th>Price/Carat</th><th>Total</th><th>Item Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in returnable_items %}
+            <tr>
+              <td>
+                <input class="form-check-input return-item" type="checkbox"
+                       name="transaction_item_ids" value="{{ item.id }}"
+                       {% if item.id|string in selected_item_ids %}checked{% endif %}
+                       data-weight="{{ item.weight or '' }}"
+                       data-total="{{ item.total_price if item.total_price is not none else '' }}">
+              </td>
+              <td>{{ item.stock_number }}</td>
+              <td>{{ item.report_number or "—" }}</td>
+              <td>{{ item.lab or "—" }}</td>
+              <td>{{ item.shape or "—" }}</td>
+              <td>{{ item.weight or "—" }}</td>
+              <td>{{ item.color or "—" }}</td>
+              <td>{{ item.clarity or "—" }}</td>
+              <td>{% if item.price_per_carat is not none %}{{ "${:,.2f}".format(item.price_per_carat) }}{% else %}—{% endif %}</td>
+              <td>{% if item.total_price is not none %}{{ "${:,.2f}".format(item.total_price) }}{% else %}—{% endif %}</td>
+              <td>{{ item.status|title }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-body row g-3 align-items-end">
+        <div class="col-md-2"><strong id="return-count">0</strong><br><small>Selected items</small></div>
+        <div class="col-md-2"><strong id="return-weight">0.00</strong><br><small>Total weight</small></div>
+        <div class="col-md-3"><strong id="return-value">—</strong><br><small>Informational value</small></div>
+        <div class="col-md-5">
+          <label class="form-label" for="return-note">Optional return note</label>
+          <textarea class="form-control" id="return-note" name="return_note" rows="2">{{ return_note }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-warning" id="confirm-return" type="submit">
+      {% if transaction.type == "invoice" %}Create Credit Invoice{% else %}Confirm Return{% endif %}
+    </button>
+  </form>
+  {% else %}
+  <div class="alert alert-info">This transaction has no returnable items.</div>
+  {% endif %}
+
+  {% set unavailable = items|rejectattr('status', 'equalto', 'active')|list %}
+  {% if unavailable %}
+  <div class="card mt-4">
+    <div class="card-header fw-semibold">Previously Processed Items</div>
+    <ul class="list-group list-group-flush">
+      {% for item in unavailable %}
+      <li class="list-group-item d-flex justify-content-between">
+        <span>{{ item.stock_number }}</span><span>{{ item.status|title }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</div>
+<script src="{{ url_for('static', filename='js/returns.js') }}"></script>
+{% endblock %}

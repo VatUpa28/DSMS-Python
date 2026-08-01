@@ -1,74 +1,70 @@
 {% extends "base.html" %} {% block content %} {% set labels = { "stock_number":
 "Stock #", "status": "Status", "shape": "Shape", "weight": "CT", "size": "Size",
 "color": "Color", "clarity": "Clarity", "cut": "Cut", "polish": "Pol",
-"symmetry": "Sym", "fluorescence_intensity": "Flu", "lab": "Lab" } %}
+"symmetry": "Sym", "fluorescence_intensity": "Flu", "lab": "Lab",
+"hold_client": "Hold Client" } %}
 
 <div class="inventory-table mt-4">
   <h1>Inventory</h1>
 
-  {% if stones %}
+  <a class="btn btn-outline-warning mb-3" href="{{ url_for('holds.holds_page') }}">
+    {% if current_user.role in ["ADMIN", "MANAGER", "SALES"] %}Manage Holds{% else %}View Holds{% endif %}
+  </a>
 
-  <form
-    id="holdForm"
-    method="POST"
-    action="{{ url_for('inventory.hold_stones') }}"
->
-    <input
-        type="hidden"
-        name="client_id"
-        id="client_id"
-    >
-</form>
-
-<div class="card mb-3">
-    <div class="card-header">
-        Hold Stones
-    </div>
-
-    <div class="card-body">
-        <div class="row g-2">
-
-            <div class="col-md-2">
-                <input
-                    id="client_code"
-                    class="form-control"
-                    placeholder="Client Code"
-                >
-            </div>
-
-            <div class="col-md-2">
-                <button
-                    type="button"
-                    class="btn btn-secondary w-100"
-                    onclick="loadClient()"
-                >
-                    Load
-                </button>
-            </div>
-
-            <div class="col-md-4">
-                <input
-                    id="client_name"
-                    class="form-control"
-                    readonly
-                >
-            </div>
-
-            <div class="col-md-2">
-                <button
-                    type="submit"
-                    form="holdForm"
-                    class="btn btn-warning w-100"
-                    id="holdButton"
-                    disabled
-                >
-                    Put Selected Stones On Hold
-                </button>
-            </div>
-
+  <div id="inventory-client-context" class="mb-4"
+       data-can-create-memo="{{ 'true' if can_create_memo else 'false' }}"
+       data-can-convert="{{ 'true' if can_convert_memo else 'false' }}">
+    <div id="context-alert" class="alert d-none" role="alert"></div>
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Client Context</div>
+      <div class="card-body">
+        <label class="form-label" for="context-client-search">Find a client</label>
+        <div class="input-group">
+          <input class="form-control" id="context-client-search"
+                 placeholder="Code, name, address, contact, phone, email, store, or business ID">
+          <button class="btn btn-primary" id="context-client-search-button" type="button">Search</button>
         </div>
+        <div id="context-client-results" class="list-group mt-2"></div>
+        <div id="selected-client-panel" class="d-none mt-3"></div>
+      </div>
     </div>
-</div>
+
+    <div id="client-context-results" class="d-none">
+      <div class="card mb-3">
+        <div class="card-header fw-semibold">Filter Client Inventory</div>
+        <div class="card-body row g-2">
+          <div class="col-md-3"><input id="ctx-stock" class="form-control" placeholder="Stock number"></div>
+          <div class="col-md-3"><textarea id="ctx-stock-numbers" class="form-control" rows="1" placeholder="Paste up to 25 stock numbers"></textarea></div>
+          <div class="col-md-2"><input id="ctx-memo" class="form-control" placeholder="Memo number"></div>
+          <div class="col-md-2"><input id="ctx-lab" class="form-control" placeholder="Lab"></div>
+          <div class="col-md-2"><input id="ctx-shape" class="form-control" placeholder="Shape"></div>
+          <div class="col-md-2"><input id="ctx-min-weight" type="number" step="0.01" class="form-control" placeholder="Min weight"></div>
+          <div class="col-md-2"><input id="ctx-max-weight" type="number" step="0.01" class="form-control" placeholder="Max weight"></div>
+          <div class="col-md-2"><input id="ctx-color" class="form-control" placeholder="Color"></div>
+          <div class="col-md-2"><input id="ctx-clarity" class="form-control" placeholder="Clarity"></div>
+          <div class="col-md-2"><input id="ctx-cut" class="form-control" placeholder="Cut"></div>
+          <div class="col-md-2"><input id="ctx-polish" class="form-control" placeholder="Polish"></div>
+          <div class="col-md-2"><input id="ctx-symmetry" class="form-control" placeholder="Symmetry"></div>
+          <div class="col-md-2"><input id="ctx-fluorescence" class="form-control" placeholder="Fluorescence"></div>
+          <div class="col-md-4 d-flex gap-2">
+            <button id="context-apply" class="btn btn-outline-primary" type="button">Apply Filters</button>
+            <button id="context-clear-filters" class="btn btn-outline-secondary" type="button">Clear Filters</button>
+          </div>
+        </div>
+      </div>
+      <div class="alert alert-info">Choose AVAILABLE/HOLD Stones for a Memo, or active items from one Memo for conversion. Create one Invoice per source Memo.</div>
+      <div id="context-selection" class="card mb-3 d-none"><div class="card-body d-flex gap-4 align-items-center flex-wrap">
+        <strong id="context-selection-label"></strong><span id="context-selection-totals"></span>
+        <button id="context-action" type="button" class="btn btn-primary ms-auto"></button>
+        <button id="context-clear-selection" type="button" class="btn btn-outline-secondary">Clear Selection</button>
+      </div></div>
+      <div class="card mb-3"><div class="card-header">Available <span class="badge bg-secondary" id="available-context-count">0</span></div><div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Select</th><th>Stock</th><th>Lab</th><th>Shape</th><th>Weight</th><th>Color</th><th>Clarity</th><th>Price/Carat</th><th>Total</th></tr></thead><tbody id="available-context-body"></tbody></table></div></div>
+      <div class="card mb-3"><div class="card-header">Reserved for This Client <span class="badge bg-warning text-dark" id="held-context-count">0</span></div><div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Select</th><th>Stock</th><th>Status</th><th>Lab</th><th>Shape</th><th>Weight</th><th>Color</th><th>Clarity</th><th>Total</th></tr></thead><tbody id="held-context-body"></tbody></table></div></div>
+      <div class="card"><div class="card-header">On Active Memo <span class="badge bg-primary" id="memo-context-count">0</span></div><div class="card-body" id="memo-context-groups"></div></div>
+    </div>
+  </div>
+
+  {% if stones %}
 
   <form method="GET" class="mb-3">
     <div class="filter-container d-flex flex-wrap gap-3 align-items-start">
@@ -467,7 +463,6 @@
     <table class="table table-bordered table-striped">
       <thead>
         <tr>
-          <th>Select</th>
           {% for key in display_columns %}
           <th style="font-size: 12px; white-space: nowrap; padding: 6px">
             {{ labels.get(key, key) }}
@@ -479,28 +474,21 @@
       <tbody>
         {% for stone in stones %}
         <tr>
-          <td>
-            {% if stone.status == 'Y' %}
-            <input
-                type="checkbox"
-                name="stone_ids"
-                value="{{ stone.id }}"
-                form="holdForm"
-            >
-            {% endif %}
-          </td>
           {% for key in display_columns %}
           <td style="font-size: 12px; white-space: nowrap; padding: 6px">
             {% set value = stone[key] %}
 
             {% if key == 'status' %}
                 {% if stone.status == "H" %}
-                    <a href="#" onclick="showHoldInfo({{ stone.id }}); return false;">
-                      H
-                    </a>
+                    H — {{ stone.hold_client_code or "Unknown client" }}
                 {% else %}
                     {{ stone.status }}
                 {% endif %}
+
+            {% elif key == 'hold_client' %}
+                {% if stone.hold_client_id %}
+                  {{ stone.hold_client_code }} — {{ stone.hold_client_name }}
+                {% else %}—{% endif %}
 
             {% elif key == 'stock_number' %}
                 <a href="#">{{ value }}</a>
@@ -521,32 +509,11 @@
     </table>
   </div>
 
-  <div class="modal fade" id="holdModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    Hold Information
-                </h5>
-
-                <button
-                    type="button"
-                    class="btn-close"
-                    data-bs-dismiss="modal"
-                ></button>
-            </div>
-
-            <div class="modal-body">
-                <p id="holdClientText"></p>
-            </div>
-
-        </div>
-    </div>
-</div>
   {% else %}
   <p>No Stones Found</p>
   {% endif %}
 </div>
+
+<script src="{{ url_for('static', filename='js/inventory_client_context.js') }}"></script>
 
 {% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<main class="container py-5">
+  <div class="alert alert-danger shadow-sm" role="alert">
+    <h1 class="h3">Unable to authenticate</h1>
+    <p>{{ message }}</p>
+    <a class="btn btn-outline-dark" href="{{ url_for('auth.login') }}">Return to Sign In</a>
+  </div>
+</main>
+{% endblock %}

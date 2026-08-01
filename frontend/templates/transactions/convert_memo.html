@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Create Invoice from Memo - DSMS{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" id="memo-conversion"
+     data-memo-id="{{ memo.id }}">
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <h1 class="h3 mb-1">Create Invoice from Memo</h1>
+      <p class="text-muted mb-0">
+        {{ memo.transaction_number }} · {{ memo.client_code }} — {{ memo.client_name }}
+      </p>
+    </div>
+    <a class="btn btn-outline-secondary"
+       href="{{ url_for('transactions.view_transaction', transaction_id=memo.id) }}">
+      Cancel
+    </a>
+  </div>
+
+  <div id="conversion-alert" class="alert d-none" role="alert"></div>
+
+  <div class="card mb-3">
+    <div class="card-header fw-semibold">Source Memo</div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-3"><small class="text-muted">Memo date</small><br>{{ memo.date }}</div>
+        <div class="col-md-3"><small class="text-muted">Contact</small><br>{{ memo.person }}</div>
+        <div class="col-md-3"><small class="text-muted">Terms</small><br>{{ memo.terms }}</div>
+        <div class="col-md-3"><small class="text-muted">Carrier</small><br>{{ memo.carrier }}</div>
+        <div class="col-md-6">
+          <small class="text-muted">Ship To snapshot</small><br>
+          {{ memo.ship_to_address_snapshot or "—" }}
+          {% if memo.ship_to_city %}, {{ memo.ship_to_city }}{% endif %}
+          {% if memo.ship_to_state %}, {{ memo.ship_to_state }}{% endif %}
+          {% if memo.ship_to_country %}, {{ memo.ship_to_country }}{% endif %}
+        </div>
+        <div class="col-md-3"><small class="text-muted">Shipment type</small><br>{{ memo.shipment_type }}</div>
+        <div class="col-md-3"><small class="text-muted">Purchase order</small><br>{{ memo.purchase_order_number or "—" }}</div>
+      </div>
+    </div>
+  </div>
+
+  <form id="memo-conversion-form" novalidate>
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Invoice Information</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-4 col-xl-2">
+            <label class="form-label" for="conversion-date">Invoice date</label>
+            <input class="form-control" id="conversion-date" type="date"
+                   value="{{ today }}" required>
+          </div>
+          <div class="col-md-4 col-xl-2">
+            <label class="form-label" for="conversion-terms">Terms</label>
+            <input class="form-control" id="conversion-terms" value="{{ memo.terms }}" required>
+          </div>
+          <div class="col-md-4 col-xl-2">
+            <label class="form-label" for="conversion-carrier">Carrier</label>
+            <input class="form-control" id="conversion-carrier" value="{{ memo.carrier }}" required>
+          </div>
+          <div class="col-md-4 col-xl-2">
+            <label class="form-label" for="conversion-shipment-type">Shipment type</label>
+            <input class="form-control" id="conversion-shipment-type"
+                   value="{{ memo.shipment_type }}" required>
+          </div>
+          <div class="col-md-4 col-xl-2">
+            <label class="form-label" for="conversion-ship-charge">Shipping charge</label>
+            <input class="form-control" id="conversion-ship-charge" type="number"
+                   min="0" step="0.01" value="{{ '%.2f'|format(memo.ship_charge) }}" required>
+          </div>
+          <div class="col-md-4 col-xl-2">
+            <label class="form-label" for="conversion-po">Purchase order</label>
+            <input class="form-control" id="conversion-po"
+                   value="{{ memo.purchase_order_number or '' }}">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-xl-5">
+        <div class="card h-100">
+          <div class="card-header fw-semibold">Invoice Contact Snapshot</div>
+          <div class="card-body row g-3">
+            <div class="col-12">
+              <label class="form-label" for="conversion-person">Person</label>
+              <input class="form-control" id="conversion-person" value="{{ memo.person }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="conversion-phone">Phone</label>
+              <input class="form-control" id="conversion-phone" value="{{ memo.phone or '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="conversion-fax">Fax</label>
+              <input class="form-control" id="conversion-fax" value="{{ memo.fax or '' }}">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-7">
+        <div class="card h-100">
+          <div class="card-header fw-semibold">Invoice Ship To Snapshot</div>
+          <div class="card-body row g-3">
+            {% for id, label, value in [
+              ('conversion-ship-label', 'Label', memo.ship_to_label),
+              ('conversion-ship-manager', 'Manager', memo.ship_to_manager),
+              ('conversion-store-number', 'Store number', memo.ship_to_store_number),
+              ('conversion-ship-city', 'City', memo.ship_to_city),
+              ('conversion-ship-state', 'State', memo.ship_to_state),
+              ('conversion-ship-country', 'Country', memo.ship_to_country),
+              ('conversion-ship-phone', 'Phone', memo.ship_to_phone)
+            ] %}
+            <div class="col-md-6">
+              <label class="form-label" for="{{ id }}">{{ label }}</label>
+              <input class="form-control" id="{{ id }}" value="{{ value or '' }}">
+            </div>
+            {% endfor %}
+            <div class="col-12">
+              <label class="form-label" for="conversion-ship-address">Address</label>
+              <textarea class="form-control" id="conversion-ship-address"
+                        rows="2" required>{{ memo.ship_to_address_snapshot or '' }}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="alert alert-info">
+      Select one or more items. Unselected items will remain active on the Memo.
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between">
+        <span class="fw-semibold">Convertible Items</span>
+        <span>{{ items|length }} remaining</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Select</th><th>Stock Number</th><th>Report</th><th>Lab</th>
+              <th>Shape</th><th>Weight</th><th>Color</th><th>Clarity</th>
+              <th>Cut</th><th>Polish</th><th>Symmetry</th><th>Fluorescence</th>
+              <th>Price/Carat</th><th>Total</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+            <tr>
+              <td><input class="form-check-input conversion-item" type="checkbox"
+                         value="{{ item.id }}" data-weight="{{ item.weight or '' }}"
+                         data-total="{{ item.total_price if item.total_price is not none else '' }}"
+                         {% if item.id in preselected_item_ids %}checked{% endif %}></td>
+              <td>{{ item.stock_number }}</td>
+              <td>{{ item.report_number or "—" }}</td>
+              <td>{{ item.lab or "—" }}</td>
+              <td>{{ item.shape or "—" }}</td>
+              <td>{{ item.weight or "—" }}</td>
+              <td>{{ item.color or "—" }}</td>
+              <td>{{ item.clarity or "—" }}</td>
+              <td>{{ item.cut or "—" }}</td>
+              <td>{{ item.polish or "—" }}</td>
+              <td>{{ item.symmetry or "—" }}</td>
+              <td>{{ item.fluorescence_intensity or "—" }}</td>
+              <td>{% if item.price_per_carat is not none %}{{ "${:,.2f}".format(item.price_per_carat) }}{% else %}—{% endif %}</td>
+              <td>{% if item.total_price is not none %}{{ "${:,.2f}".format(item.total_price) }}{% else %}—{% endif %}</td>
+              <td>Active on Memo</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="15" class="text-center text-muted py-4">No convertible items remain.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body d-flex gap-4 align-items-center flex-wrap">
+        <div><strong id="conversion-count">0</strong><br><small>Selected items</small></div>
+        <div><strong id="conversion-weight">0.00</strong><br><small>Total weight</small></div>
+        <div><strong id="conversion-value">—</strong><br><small>Informational value</small></div>
+        <button class="btn btn-primary ms-auto" id="convert-memo" type="submit"
+                {% if not items %}disabled{% endif %}>
+          Create Invoice
+        </button>
+      </div>
+    </div>
+  </form>
+</div>
+<script src="{{ url_for('static', filename='js/memo_conversion.js') }}"></script>
+{% endblock %}
