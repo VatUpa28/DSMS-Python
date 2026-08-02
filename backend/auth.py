@@ -28,7 +28,13 @@ csrf = CSRFProtect()
 
 VALID_ROLES = {"ADMIN", "MANAGER", "SALES", "ACCOUNTING"}
 MIN_PASSWORD_LENGTH = 12
-PUBLIC_ENDPOINTS = {"auth.login", "auth.login_api", "home.home", "static"}
+PUBLIC_ENDPOINTS = {
+    "auth.login",
+    "auth.login_api",
+    "health.health",
+    "home.home",
+    "static",
+}
 
 
 class AuthenticationRequired(Exception):
