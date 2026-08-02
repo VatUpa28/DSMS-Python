@@ -3,22 +3,41 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $python = Join-Path $projectRoot ".venv\Scripts\python.exe"
 $backend = Join-Path $projectRoot "backend"
+$logDirectory = Join-Path $projectRoot "logs"
+$logPath = Join-Path $logDirectory "dsms-backup.log"
 
 if (-not (Test-Path $python)) {
-    Write-Error "DSMS virtual environment was not found at: $python"
+    throw "DSMS virtual environment was not found at: $python"
 }
 
-Write-Host "Starting DSMS database backup..."
+New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
 
-Push-Location $backend
+$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
 try {
-    & $python -m database.backup_db
+    Add-Content $logPath "$timestamp | INFO | Starting DSMS database backup"
 
-    if ($LASTEXITCODE -ne 0) {
-        throw "DSMS backup failed with exit code $LASTEXITCODE."
+    Push-Location $backend
+
+    try {
+        $output = & $python -m database.backup_db 2>&1
+
+        if ($LASTEXITCODE -ne 0) {
+            throw "Backup command failed with exit code $LASTEXITCODE. $output"
+        }
+
+        foreach ($line in $output) {
+            Add-Content $logPath "$timestamp | INFO | $line"
+            Write-Host $line
+        }
     }
+    finally {
+        Pop-Location
+    }
+
+    Add-Content $logPath "$timestamp | INFO | Backup completed successfully"
 }
-finally {
-    Pop-Location
+catch {
+    Add-Content $logPath "$timestamp | ERROR | $($_.Exception.Message)"
+    throw
 }
