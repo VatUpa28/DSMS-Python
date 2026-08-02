@@ -58,10 +58,42 @@ def create_backup() -> Path:
         temporary_path.unlink(missing_ok=True)
         raise
 
+def cleanup_old_backups(backup_dir: Path) -> int:
+    retention_value = os.environ.get(
+        "DSMS_BACKUP_RETENTION_DAYS",
+        "30",
+    )
+
+    try:
+        retention_days = int(retention_value)
+    except ValueError as error:
+        raise ValueError(
+            "DSMS_BACKUP_RETENTION_DAYS must be a whole number."
+        ) from error
+
+    if retention_days <= 0:
+        return 0
+
+    cutoff_timestamp = (
+        datetime.now().timestamp()
+        - retention_days * 24 * 60 * 60
+    )
+
+    deleted_count = 0
+
+    for backup_path in backup_dir.glob("dsms-backup-*.db"):
+        if backup_path.stat().st_mtime < cutoff_timestamp:
+            backup_path.unlink()
+            deleted_count += 1
+
+    return deleted_count
 
 def main() -> None:
     backup_path = create_backup()
+    deleted_count = cleanup_old_backups(backup_path.parent)
+
     print(f"Backup created successfully: {backup_path}")
+    print(f"Old backups removed: {deleted_count}")
 
 
 if __name__ == "__main__":
