@@ -49,11 +49,17 @@ app.config.update(
     SECRET_KEY=secret_key,
     DSMS_ENV=environment,
 )
+insecure_cookie_allowed = environment in {"development", "pilot"}
+
 secure_cookie = _environment_flag(
-    "DSMS_SESSION_COOKIE_SECURE", environment != "development"
+    "DSMS_SESSION_COOKIE_SECURE",
+    not insecure_cookie_allowed,
 )
-if environment != "development" and not secure_cookie:
-    raise RuntimeError("Secure session cookies cannot be disabled outside development.")
+
+if not insecure_cookie_allowed and not secure_cookie:
+    raise RuntimeError(
+        "Secure session cookies can only be disabled in development or pilot mode."
+    )
 configure_session_security(
     app,
     environment,
