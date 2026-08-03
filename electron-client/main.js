@@ -1,5 +1,6 @@
 "use strict";
 
+const { setupAutoUpdater } = require("./updater");
 const fs = require("node:fs");
 const path = require("node:path");
 const { URL } = require("node:url");
@@ -191,9 +192,11 @@ app.whenReady().then(async () => {
     }
   );
 
-  await createMainWindow();
+await createMainWindow();
 
-  app.on("activate", async () => {
+setupAutoUpdater(() => mainWindow);
+
+app.on("activate", async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       await createMainWindow();
     }
