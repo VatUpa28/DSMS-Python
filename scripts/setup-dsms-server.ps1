@@ -15,9 +15,10 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $requiredScripts = @(
     "install-dsms-dependencies.ps1"
     "configure-dsms-server.ps1"
-    "register-dsms-firewall-rule.ps1"
     "register-dsms-startup-task.ps1"
     "register-dsms-backup-task.ps1"
+    "install-cloudflared.ps1"
+    "register-cloudflare-tunnel.ps1"
 )
 
 Write-Host ""
@@ -55,12 +56,12 @@ if ($confirmation -cne "SETUP") {
 }
 
 Write-Host ""
-Write-Host "[1/5] Installing Python dependencies..."
+Write-Host "[1/6] Installing Python dependencies..."
 
 & (Join-Path $PSScriptRoot "install-dsms-dependencies.ps1")
 
 Write-Host ""
-Write-Host "[2/5] Configuring server settings..."
+Write-Host "[2/6] Configuring server settings..."
 
 & (Join-Path $PSScriptRoot "configure-dsms-server.ps1") `
     -Port $Port `
@@ -68,21 +69,25 @@ Write-Host "[2/5] Configuring server settings..."
     -BackupRetentionDays $BackupRetentionDays
 
 Write-Host ""
-Write-Host "[3/5] Configuring Windows Firewall..."
-
-& (Join-Path $PSScriptRoot "register-dsms-firewall-rule.ps1") `
-    -Port $Port
-
-Write-Host ""
-Write-Host "[4/5] Registering automatic server startup..."
+Write-Host "[3/6] Registering automatic server startup..."
 
 & (Join-Path $PSScriptRoot "register-dsms-startup-task.ps1")
 
 Write-Host ""
-Write-Host "[5/5] Registering automatic database backups..."
+Write-Host "[4/6] Registering automatic database backups..."
 
 & (Join-Path $PSScriptRoot "register-dsms-backup-task.ps1") `
     -BackupTime $BackupTime
+
+Write-Host ""
+Write-Host "[5/6] Installing Cloudflare Tunnel software..."
+
+& (Join-Path $PSScriptRoot "install-cloudflared.ps1")
+
+Write-Host ""
+Write-Host "[6/6] Registering Cloudflare Tunnel service..."
+
+& (Join-Path $PSScriptRoot "register-cloudflare-tunnel.ps1")
 
 Write-Host ""
 Write-Host "========================================"
@@ -92,13 +97,17 @@ Write-Host ""
 Write-Host "The following have been configured:"
 Write-Host "  - Python virtual environment"
 Write-Host "  - DSMS dependencies"
-Write-Host "  - Machine-level server settings"
-Write-Host "  - Restricted Windows Firewall rule"
-Write-Host "  - Automatic startup task"
+Write-Host "  - Machine-level production settings"
+Write-Host "  - Local-only DSMS server binding"
+Write-Host "  - Automatic DSMS startup task"
 Write-Host "  - Daily database backup task"
+Write-Host "  - Cloudflare Tunnel software"
+Write-Host "  - Cloudflare Tunnel Windows service"
 Write-Host ""
 Write-Host "Restart Windows before testing DSMS."
 Write-Host ""
-Write-Host "After restarting, check the server at:"
-Write-Host "  http://127.0.0.1:$Port"
+Write-Host "After restarting, verify DSMS locally at:"
+Write-Host "  http://127.0.0.1:$Port/health"
+Write-Host ""
+Write-Host "Remote access will use the hostname configured in Cloudflare."
 Write-Host ""

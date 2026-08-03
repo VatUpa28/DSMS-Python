@@ -45,14 +45,14 @@ try {
     }
 
     $settings = @{
-        "DSMS_ENV"                    = "pilot"
-        "DSMS_HOST"                   = "0.0.0.0"
-        "DSMS_PORT"                   = $Port.ToString()
-        "DSMS_THREADS"                = $Threads.ToString()
-        "DSMS_SESSION_COOKIE_SECURE"  = "false"
-        "DSMS_BACKUP_RETENTION_DAYS"  = $BackupRetentionDays.ToString()
-        "DSMS_SECRET_KEY"             = $secretKey
-    }
+    "DSMS_ENV"                    = "production"
+    "DSMS_HOST"                   = "127.0.0.1"
+    "DSMS_PORT"                   = $Port.ToString()
+    "DSMS_THREADS"                = $Threads.ToString()
+    "DSMS_SESSION_COOKIE_SECURE"  = "true"
+    "DSMS_BACKUP_RETENTION_DAYS"  = $BackupRetentionDays.ToString()
+    "DSMS_SECRET_KEY"             = $secretKey
+}
 
     foreach ($setting in $settings.GetEnumerator()) {
         [Environment]::SetEnvironmentVariable(
@@ -73,8 +73,9 @@ finally {
 
 Write-Host ""
 Write-Host "DSMS server configuration completed."
-Write-Host "Environment: pilot"
-Write-Host "Listening address: 0.0.0.0:$Port"
+Write-Host "Environment: production"
+Write-Host "Local listening address: 127.0.0.1:$Port"
+Write-Host "DSMS will only be reachable through the configured Cloudflare Tunnel."
 Write-Host "Waitress threads: $Threads"
 Write-Host "Backup retention: $BackupRetentionDays days"
 Write-Host ""
