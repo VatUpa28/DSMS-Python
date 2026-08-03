@@ -26,7 +26,8 @@
     },
     "files": [
       "main.js",
-      "package.json"
+      "package.json",
+      "updater.js"
     ],
     "win": {
       "target": "nsis",
@@ -41,7 +42,16 @@
       "createStartMenuShortcut": true,
       "shortcutName": "DSMS",
       "artifactName": "DSMS-Setup.${ext}",
-      "runAfterFinish": true
+      "runAfterFinish": true,
+      "include": "build/installer.nsh"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "VatUpa28",
+      "repo": "DSMS-Python"
     }
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }
