@@ -16,5 +16,32 @@
     "electron": "^43.2.0",
     "electron-builder": "^26.15.3"
   },
-  "productName": "DSMS"
+  "productName": "DSMS",
+  "build": {
+    "appId": "com.diamondstar.dsms",
+    "productName": "DSMS",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "executableName": "DSMS"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "DSMS",
+      "artifactName": "DSMS-Setup.${ext}",
+      "runAfterFinish": true
+    }
+  }
 }
