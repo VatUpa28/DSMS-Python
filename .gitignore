@@ -16,3 +16,21 @@ __pycache__/
 *.tmp
 
 logs/
+
+$ignoreEntries = @(
+    "electron-client/node_modules/"
+    "electron-client/dist/"
+    "electron-client/out/"
+    "electron-client/release/"
+)
+
+foreach ($entry in $ignoreEntries) {
+    if (-not (Select-String `
+        -Path ".\.gitignore" `
+        -SimpleMatch $entry `
+        -Quiet `
+        -ErrorAction SilentlyContinue)) {
+
+        Add-Content ".\.gitignore" $entry
+    }
+}electron-client/client-config.json
